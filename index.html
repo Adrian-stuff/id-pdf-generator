@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>document generator</title>
+  <script src="jspdf.umd.min.js">
+  </script>
+</head>
+
+<body>
+  <h1 id="status"></h1>
+  <div>
+    <label for="filename">filename:</label>
+    <input type="text" name="filename" id="filename" value="id-print">
+  </div>
+  <div>
+    <label for="files">upload images </label>
+    <input type="file" name="files" id="files" multiple="multiple" accept="image/*">
+  </div>
+  <div style="display: flex; flex-direction: column; max-width: 100px; margin: 10px 0 10px 0;">
+    <label for="width">width (inches)</label>
+    <input type="number" name="width" id="width" value="4.41">
+    <label for="height">height (inches)</label>
+    <input type="number" name="height" id="height" value="4.41">
+  </div>
+
+  <button style="padding: 10px; font-weight: bold;" id="button" disabled>GENERATE PDF</button>
+  <pre id="log"></pre>
+  <script>
+    (function () {
+      var old = console.log;
+      var logger = document.getElementById('log');
+      console.log = function (message) {
+        if (typeof message == 'object') {
+          logger.innerHTML += (JSON && JSON.stringify ? JSON.stringify(message) : message) + '<br />';
+        } else {
+          logger.innerHTML += message + '<br />';
+        }
+      }
+    })();
+  </script>
+  <script>
+    const status = document.querySelector("#status")
+    const toBase64 = file => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
+    });
+
+    const calculatePercentage = (val, tot) => {
+      return (100 * val) / tot;
+    }
+
+    function generatePDF(array) {
+      const doc = new jspdf.jsPDF({
+        orientation: "landscape",
+        unit: "in",
+        // format: [4, 2]
+      });
+      const filename = document.querySelector("#filename").value;
+      const width = document.querySelector("#width").value;
+      const height = document.querySelector("#height").value;
+
+      let count = 0;
+      let ctr = 0;
+      const positions = { x: [0.5, 5.680, 0.5, 5.680], y: [0.3, 0.3, 4, 4] }
+      for (let index = 0; index < array.length; index++) {
+        const image = array[index];
+        doc.setLineWidth(0.015)
+        doc.rect(positions.x[count], positions.y[count] + 0.35, +width - 0.02, +height - 1, "S")
+        doc.addImage(image, "PNG", positions.x[count], positions.y[count], +width, +height)
+        console.log(calculatePercentage(index, array.length))
+        count++;
+        ctr++;
+        if (count === 4) {
+          count = 0;
+          doc.addPage("a4", "l")
+        }
+        if (ctr === array.length) {
+          console.log("downloading pdf...")
+          status.textContent = "DOWNLOADING PDF"
+        }
+      }
+      doc.save(`${filename}.pdf`)
+      status.textContent = "DOWNLOADED"
+    }
+
+    async function Main() {
+      const array = []
+      const input = document.querySelector("#files");
+      const button = document.querySelector("#button");
+      let ctr = 0;
+      input.addEventListener("change", async (e) => {
+        status.textContent = "PROCESSING IMAGES"
+        button.textContent = "PROCESSING";
+        [...e.target.files].forEach(async (file, i, files) => {
+          let x = await toBase64(file)
+          array.push(x)
+          console.log(x)
+          ctr++
+          if (ctr === files.length) {
+            console.log("done")
+            status.textContent = "DONE PROCESSING"
+            button.textContent = "GENERATE PDF";
+            button.removeAttribute("disabled")
+          }
+        })
+
+      })
+      button.addEventListener("click", () => {
+        try {
+          console.log("generatingpdf....")
+          button.setAttribute("disabled", "true")
+          generatePDF(array)
+        } catch (error) {
+          console.log(error)
+        }
+      })
+    }
+
+    Main();
+
+  </script>
+</body>
+
+</html>
