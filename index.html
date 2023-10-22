@@ -70,8 +70,8 @@
       const positions = { x: [0.5, 5.680, 0.5, 5.680], y: [0.3, 0.3, 4, 4] }
       for (let index = 0; index < array.length; index++) {
         const image = array[index];
-        doc.setLineWidth(0.015)
-        doc.rect(positions.x[count], positions.y[count] + 0.35, +width - 0.02, +height - 1, "S")
+        // doc.setLineWidth(0.015)
+        // doc.rect(positions.x[count], positions.y[count] + 0.35, +width - 0.02, +height - 1, "S")
         doc.addImage(image, "PNG", positions.x[count], positions.y[count], +width, +height)
         console.log(calculatePercentage(index, array.length))
         count++;
