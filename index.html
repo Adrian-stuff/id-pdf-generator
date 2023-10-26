@@ -31,17 +31,17 @@
   <button style="padding: 10px; font-weight: bold;" id="button">GENERATE PDF</button>
   <pre id="log"></pre>
   <script>
-    // (function () {
-    //   var old = console.log;
-    //   var logger = document.getElementById('log');
-    //   console.log = function (message) {
-    //     if (typeof message == 'object') {
-    //       logger.innerHTML += (JSON && JSON.stringify ? JSON.stringify(message) : message) + '<br />';
-    //     } else {
-    //       logger.innerHTML += message + '<br />';
-    //     }
-    //   }
-    // })();
+    (function () {
+      var old = console.log;
+      var logger = document.getElementById('log');
+      console.log = function (message) {
+        if (typeof message == 'object') {
+          logger.innerHTML += (JSON && JSON.stringify ? JSON.stringify(message) : message) + '<br />';
+        } else {
+          logger.innerHTML += message + '<br />';
+        }
+      }
+    })();
   </script>
   <script>
     const status = document.querySelector("#status")
