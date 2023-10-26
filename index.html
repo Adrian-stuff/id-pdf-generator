@@ -6,8 +6,9 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>document generator</title>
-  <script src="jspdf.umd.min.js">
+  <script src="docx.js">
   </script>
+  <script src="fileSaver.js"> </script>
 </head>
 
 <body>
@@ -21,26 +22,26 @@
     <input type="file" name="files" id="files" multiple="multiple" accept="image/*">
   </div>
   <div style="display: flex; flex-direction: column; max-width: 100px; margin: 10px 0 10px 0;">
-    <label for="width">width (inches)</label>
-    <input type="number" name="width" id="width" value="4.3661417">
-    <label for="height">height (inches)</label>
-    <input type="number" name="height" id="height" value="3.358268">
+    <label for="width">width (mm)</label>
+    <input type="number" name="width" id="width" value="416">
+    <label for="height">height (mm)</label>
+    <input type="number" name="height" id="height" value="321">
   </div>
 
-  <button style="padding: 10px; font-weight: bold;" id="button" disabled>GENERATE PDF</button>
+  <button style="padding: 10px; font-weight: bold;" id="button">GENERATE PDF</button>
   <pre id="log"></pre>
   <script>
-    (function () {
-      var old = console.log;
-      var logger = document.getElementById('log');
-      console.log = function (message) {
-        if (typeof message == 'object') {
-          logger.innerHTML += (JSON && JSON.stringify ? JSON.stringify(message) : message) + '<br />';
-        } else {
-          logger.innerHTML += message + '<br />';
-        }
-      }
-    })();
+    // (function () {
+    //   var old = console.log;
+    //   var logger = document.getElementById('log');
+    //   console.log = function (message) {
+    //     if (typeof message == 'object') {
+    //       logger.innerHTML += (JSON && JSON.stringify ? JSON.stringify(message) : message) + '<br />';
+    //     } else {
+    //       logger.innerHTML += message + '<br />';
+    //     }
+    //   }
+    // })();
   </script>
   <script>
     const status = document.querySelector("#status")
@@ -55,39 +56,91 @@
       return (100 * val) / tot;
     }
 
+    const positions = { x: [500000, 5500000], y: [500000, 4000000] }; // Two positions per page
+
     function generatePDF(array) {
-      const doc = new jspdf.jsPDF({
-        orientation: "landscape",
-        unit: "in",
-        // format: [4, 2]
-      });
       const filename = document.querySelector("#filename").value;
       const width = document.querySelector("#width").value;
       const height = document.querySelector("#height").value;
+      const imagesPerPage = 4;
+      const paragraphs = [];
+      const imageArray = [];
+      const elements = []
+      array.forEach((imageBlob, index) => {
+        const xIndex = index % 2; // Two positions per page
+        const yIndex = Math.floor(index / 2) % 2; // Two positions per page
 
-      let count = 0;
-      let ctr = 0;
-      const positions = { x: [0.5, 5.680, 0.5, 5.680], y: [0.3, 0.3, 4, 4] }
-      for (let index = 0; index < array.length; index++) {
-        const image = array[index];
-        // doc.setLineWidth(0.015)
-        // doc.rect(positions.x[count], positions.y[count] + 0.35, +width - 0.02, +height - 1, "S")
-        doc.addImage(image, "PNG", positions.x[count], positions.y[count], +width, +height)
-        console.log(calculatePercentage(index, array.length))
-        count++;
-        ctr++;
-        if (count === 4) {
-          count = 0;
-          doc.addPage("a4", "l")
+        const x = positions.x[xIndex];
+        const y = positions.y[yIndex];
+        console.log({ x, y })
+        const image =
+          new docx.ImageRun({
+            data: imageBlob,
+            transformation: { width: +width, height: +height },
+            floating: {
+              horizontalPosition: {
+                relative: docx.HorizontalPositionRelativeFrom.PAGE,
+                offset: x
+              },
+              verticalPosition: {
+                relative: docx.VerticalPositionRelativeFrom.PAGE,
+
+                offset: y
+              },
+              layoutInCell: true
+            },
+          })
+
+
+
+        elements.push(image);
+
+        // Check if we have reached the desired number of images per page and it's not the last image
+        if ((index + 1) % imagesPerPage === 0 && index !== array.length - 1) {
+          // Insert a page break
+          console.log("hello")
+          elements.push(new docx.PageBreak());
         }
-        if (ctr === array.length) {
-          console.log("downloading pdf...")
-          status.textContent = "DOWNLOADING PDF"
+      });
+      let currentParagraph = [];
+
+      elements.forEach((arr, index) => {
+        currentParagraph.push(arr);
+        console.log(arr);
+
+        // Check if we have collected 5 elements or if it's the last element
+        if (currentParagraph.length === 5 || index === elements.length - 1) {
+          // Create a new paragraph with the collected elements and push it
+          paragraphs.push(new docx.Paragraph({ children: [...currentParagraph] }));
+          currentParagraph = []; // Clear the currentParagraph array
         }
-      }
-      doc.save(`${filename}.pdf`)
-      status.textContent = "DOWNLOADED"
+      });
+      console.log("paragraphs", paragraphs)
+      const doc = new docx.Document({
+        compatibility: {
+          version: 15,
+          doNotExpandShiftReturn: true,
+        },
+        sections: paragraphs.map((paragraph) => ({
+          properties: {
+            page: {
+              size: {
+                orientation: docx.PageOrientation.LANDSCAPE,
+              },
+            },
+          },
+          children: [paragraph],
+        })),
+
+      });
+
+      docx.Packer.toBlob(doc).then((blob) => {
+        saveAs(blob, `${filename}.docx`);
+        console.log("Document created successfully");
+      });
+      status.textContent = "DOWNLOADED";
     }
+
 
     async function Main() {
       const array = []
@@ -109,11 +162,11 @@
             button.removeAttribute("disabled")
           }
         })
-
       })
+
       button.addEventListener("click", () => {
         try {
-          console.log("generatingpdf....")
+          console.log("generating docx....")
           button.setAttribute("disabled", "true")
           generatePDF(array)
         } catch (error) {
